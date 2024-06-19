@@ -1,0 +1,21 @@
+type Query {
+  posts(filter: PostFilter!, limit: Int, offset: Int): [Post!]!
+  post(id: ID!, limit: Int, offset: Int): Post!
+
+  comments(filter: CommentFilter, limit: Int, offset: Int): [Comment!]!
+  comment(id: ID!, limit: Int, offset: Int): Comment!
+}
+
+type Mutation {
+  createPost(input: PostInput!): Post!
+  deletePost(id: ID!): Boolean!
+  disableComments(postID: ID!): Post!
+  enableComments(postID: ID!): Post!
+
+  createComment(input: CommentInput!): Comment!
+  deleteComment(id: ID!): Boolean!
+}
+
+type Subscription {
+  newComment(userID: ID!, postID: ID!): Comment!
+}

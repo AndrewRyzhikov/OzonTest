@@ -1,0 +1,19 @@
+type Post {
+    postID: ID!
+    userID: ID!
+    content: String!
+    comments: [Comment]!
+    timestamp: Timestamp!
+    isOpen: Boolean!
+}
+
+input PostInput {
+    userID: ID!
+    content: String!
+    timestamp: Timestamp!
+    isOpen: Boolean!
+}
+
+input PostFilter {
+    userID: ID!
+}

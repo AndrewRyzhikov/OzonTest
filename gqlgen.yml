@@ -1,0 +1,30 @@
+schema:
+  - internal/transport/graph/schemas/*.graphqls
+
+exec:
+  filename: internal/transport/graph/generated/generated.go
+  package: generated
+
+model:
+  filename: internal/transport/graph/model/models_gen.go
+  package: model
+
+resolver:
+  layout: follow-schema
+  dir: internal/transport/graph
+  package: graph
+  filename_template: "{name}.resolvers.go"
+
+autobind:
+  - OzonTest/internal/entity
+
+models:
+  ID:
+    model:
+      - github.com/99designs/gqlgen/graphql.Int
+  Int:
+    model:
+      - github.com/99designs/gqlgen/graphql.Int
+  Timestamp:
+    model:
+      - github.com/99designs/gqlgen/graphql.Time

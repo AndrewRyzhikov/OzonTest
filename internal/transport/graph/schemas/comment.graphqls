@@ -1,0 +1,31 @@
+scalar Timestamp
+
+type Comment {
+    ID: ID!
+    parentID: ID!
+    postID: ID!
+    userID: ID!
+    content: String!
+    timestamp: Timestamp!
+    replies: [Comment!]!
+}
+
+input CommentInput {
+    postID: ID!
+    userID: ID!
+    timestamp: Timestamp!
+    content: String!
+}
+
+input RepCommentInput {
+    parentID: ID!
+    postID: ID!
+    userID: ID!
+    timestamp: Timestamp!
+    text: String!
+}
+
+input CommentFilter {
+    postID: ID!
+    userID: ID!
+}
