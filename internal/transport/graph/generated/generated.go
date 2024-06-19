@@ -362,7 +362,6 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 		ec.unmarshalInputCommentInput,
 		ec.unmarshalInputPostFilter,
 		ec.unmarshalInputPostInput,
-		ec.unmarshalInputRepCommentInput,
 	)
 	first := true
 
@@ -492,16 +491,9 @@ type Comment {
 input CommentInput {
     postID: ID!
     userID: ID!
+    parentID: ID!
     timestamp: Timestamp!
     content: String!
-}
-
-input RepCommentInput {
-    parentID: ID!
-    postID: ID!
-    userID: ID!
-    timestamp: Timestamp!
-    text: String!
 }
 
 input CommentFilter {
@@ -4154,7 +4146,7 @@ func (ec *executionContext) unmarshalInputCommentInput(ctx context.Context, obj 
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"postID", "userID", "timestamp", "content"}
+	fieldsInOrder := [...]string{"postID", "userID", "parentID", "timestamp", "content"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -4175,6 +4167,13 @@ func (ec *executionContext) unmarshalInputCommentInput(ctx context.Context, obj 
 				return it, err
 			}
 			it.UserID = data
+		case "parentID":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("parentID"))
+			data, err := ec.unmarshalNID2int(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ParentID = data
 		case "timestamp":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("timestamp"))
 			data, err := ec.unmarshalNTimestamp2timeᚐTime(ctx, v)
@@ -4264,61 +4263,6 @@ func (ec *executionContext) unmarshalInputPostInput(ctx context.Context, obj int
 				return it, err
 			}
 			it.IsOpen = data
-		}
-	}
-
-	return it, nil
-}
-
-func (ec *executionContext) unmarshalInputRepCommentInput(ctx context.Context, obj interface{}) (model.RepCommentInput, error) {
-	var it model.RepCommentInput
-	asMap := map[string]interface{}{}
-	for k, v := range obj.(map[string]interface{}) {
-		asMap[k] = v
-	}
-
-	fieldsInOrder := [...]string{"parentID", "postID", "userID", "timestamp", "text"}
-	for _, k := range fieldsInOrder {
-		v, ok := asMap[k]
-		if !ok {
-			continue
-		}
-		switch k {
-		case "parentID":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("parentID"))
-			data, err := ec.unmarshalNID2int(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.ParentID = data
-		case "postID":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("postID"))
-			data, err := ec.unmarshalNID2int(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.PostID = data
-		case "userID":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("userID"))
-			data, err := ec.unmarshalNID2int(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.UserID = data
-		case "timestamp":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("timestamp"))
-			data, err := ec.unmarshalNTimestamp2timeᚐTime(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.Timestamp = data
-		case "text":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("text"))
-			data, err := ec.unmarshalNString2string(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.Text = data
 		}
 	}
 
