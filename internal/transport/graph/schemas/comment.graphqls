@@ -13,16 +13,9 @@ type Comment {
 input CommentInput {
     postID: ID!
     userID: ID!
+    parentID: ID!
     timestamp: Timestamp!
     content: String!
-}
-
-input RepCommentInput {
-    parentID: ID!
-    postID: ID!
-    userID: ID!
-    timestamp: Timestamp!
-    text: String!
 }
 
 input CommentFilter {

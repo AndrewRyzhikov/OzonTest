@@ -5,15 +5,14 @@ import (
 )
 
 type Comment struct {
-	ID        int        `json:"ID"`
-	ParentID  int        `json:"parentID"`
-	PostID    int        `json:"postID"`
-	UserID    int        `json:"userID"`
-	Content   string     `json:"content"`
-	Timestamp time.Time  `json:"timestamp"`
+	ID        int        `json:"ID" db:"id"`
+	ParentID  int        `json:"parentID" db:"parent_id"`
+	PostID    int        `json:"postID" db:"post_id"`
+	UserID    int        `json:"userID" db:"user_id"`
+	Content   string     `json:"content" db:"content"`
+	Timestamp time.Time  `json:"timestamp" db:"timestamp"`
 	Replies   []*Comment `json:"replies"`
 }
-
 type CommentFilter struct {
 	PostID int `json:"postID"`
 	UserID int `json:"userID"`

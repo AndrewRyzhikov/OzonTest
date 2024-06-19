@@ -12,22 +12,22 @@ type posts map[int]users
 
 type SubscriptionService struct {
 	sync.RWMutex
-	p posts
+	posts posts
 }
 
 func NewSubscriptionService() *SubscriptionService {
-	return &SubscriptionService{p: make(posts)}
+	return &SubscriptionService{posts: make(posts)}
 }
 
 func (s *SubscriptionService) Subscribe(ctx context.Context, userID int, postID int) (<-chan *entity.Comment, error) {
 	s.Lock()
 
-	if len(s.p[postID]) == 0 {
-		s.p[postID] = make(users)
+	if len(s.posts[postID]) == 0 {
+		s.posts[postID] = make(users)
 	}
 
 	ch := make(chan *entity.Comment)
-	s.p[postID][userID] = ch
+	s.posts[postID][userID] = ch
 
 	s.Unlock()
 
@@ -41,9 +41,9 @@ func (s *SubscriptionService) unSubscribe(ctx context.Context, c chan *entity.Co
 
 	s.Lock()
 
-	delete(s.p[postID], userID)
-	if len(s.p[postID]) == 0 {
-		delete(s.p, postID)
+	delete(s.posts[postID], userID)
+	if len(s.posts[postID]) == 0 {
+		delete(s.posts, postID)
 	}
 
 	s.Unlock()
@@ -55,9 +55,9 @@ func (s *SubscriptionService) NotifySubscribers(comment *entity.Comment) {
 	s.RLock()
 	defer s.RUnlock()
 
-	for _, channel := range s.p[comment.PostID] {
-		go func() {
-			channel <- comment
-		}()
+	for _, channel := range s.posts[comment.PostID] {
+		//go func() {
+		channel <- comment
+		//}()
 	}
 }

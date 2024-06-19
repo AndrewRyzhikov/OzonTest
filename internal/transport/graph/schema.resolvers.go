@@ -44,7 +44,7 @@ func (r *mutationResolver) EnableComments(ctx context.Context, postID int) (*ent
 
 // CreateComment is the resolver for the createComment field.
 func (r *mutationResolver) CreateComment(ctx context.Context, input model.CommentInput) (*entity.Comment, error) {
-	comment, err := r.CommentService.Create(ctx,
+	comment, err := r.CommentService.CreateComment(ctx,
 		entity.Comment{
 			PostID:    input.PostID,
 			UserID:    input.UserID,
@@ -61,7 +61,7 @@ func (r *mutationResolver) CreateComment(ctx context.Context, input model.Commen
 
 // DeleteComment is the resolver for the deleteComment field.
 func (r *mutationResolver) DeleteComment(ctx context.Context, id int) (bool, error) {
-	err := r.CommentService.Delete(ctx, id)
+	err := r.CommentService.DeleteComment(ctx, id)
 	if err != nil {
 		return false, err
 	}
@@ -81,12 +81,12 @@ func (r *queryResolver) Post(ctx context.Context, id int, limit *int, offset *in
 
 // Comments is the resolver for the comments field.
 func (r *queryResolver) Comments(ctx context.Context, filter *entity.CommentFilter, limit *int, offset *int) ([]*entity.Comment, error) {
-	return r.CommentService.GetAll(ctx, *filter, entity.Pagination{Limit: limit, Offset: offset})
+	return r.CommentService.GetAllComments(ctx, *filter, entity.Pagination{Limit: limit, Offset: offset})
 }
 
 // Comment is the resolver for the comment field.
 func (r *queryResolver) Comment(ctx context.Context, id int, limit *int, offset *int) (*entity.Comment, error) {
-	return r.CommentService.GetById(ctx, id, entity.Pagination{Limit: limit, Offset: offset})
+	return r.CommentService.GetCommentById(ctx, id, entity.Pagination{Limit: limit, Offset: offset})
 }
 
 // NewComment is the resolver for the newComment field.

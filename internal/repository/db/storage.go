@@ -1,19 +1,20 @@
-package storage
+package db
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
+
+	"github.com/jmoiron/sqlx"
 
 	"OzonTest/internal/config"
 )
 
 type Storage[T any] struct {
-	*sql.DB
+	*sqlx.DB
 }
 
 func NewStorage[T any](cfg config.DataBaseConfig) (*Storage[T], error) {
-	db, err := sql.Open(cfg.Driver, dataToPSQLConnection(cfg.Port, cfg.Host, cfg.User, cfg.Password, cfg.DbName))
+	db, err := sqlx.Open(cfg.Driver, dataToPSQLConnection(cfg.Port, cfg.Host, cfg.User, cfg.Password, cfg.DbName))
 	if err != nil {
 		return nil, fmt.Errorf("error connecting to the database: %v", err)
 	}
@@ -25,15 +26,15 @@ func dataToPSQLConnection(port uint64, host, user, password, dbname string) stri
 		host, port, user, password, dbname)
 }
 
-func (d *Storage[T]) executeQueryRow(ctx context.Context, query string, args ...interface{}) (T, error) {
+func (d *Storage[T]) queryRowContext(ctx context.Context, query string, args ...interface{}) (T, error) {
 	var record T
 
-	tx, err := d.Begin()
+	tx, err := d.Beginx()
 	if err != nil {
 		return record, fmt.Errorf("transaction cannot start: %w", err)
 	}
 
-	err = tx.QueryRowContext(ctx, query+" RETURNING *", args...).Scan(&record)
+	err = tx.QueryRowxContext(ctx, query+" RETURNING *", args...).StructScan(&record)
 	if err != nil {
 		if errRollback := tx.Rollback(); errRollback != nil {
 			return record, fmt.Errorf("transaction cannot execute query and rollback: %w, %w", err, errRollback)
@@ -48,16 +49,16 @@ func (d *Storage[T]) executeQueryRow(ctx context.Context, query string, args ...
 	return record, nil
 }
 
-func (d *Storage[T]) ExecuteInsert(ctx context.Context, query string, args ...interface{}) (T, error) {
-	return d.executeQueryRow(ctx, query, args...)
+func (d *Storage[T]) Insert(ctx context.Context, query string, args ...interface{}) (T, error) {
+	return d.queryRowContext(ctx, query, args...)
 }
 
 func (d *Storage[T]) ExecuteUpdate(ctx context.Context, query string, args ...interface{}) (T, error) {
-	return d.executeQueryRow(ctx, query, args...)
+	return d.queryRowContext(ctx, query, args...)
 }
 
-func (d *Storage[T]) ExecuteDelete(ctx context.Context, query string, args ...interface{}) error {
-	tx, err := d.Begin()
+func (d *Storage[T]) Delete(ctx context.Context, query string, args ...interface{}) error {
+	tx, err := d.Beginx()
 	if err != nil {
 		return fmt.Errorf("transaction cannot start: %w", err)
 	}

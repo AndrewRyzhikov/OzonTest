@@ -9,18 +9,18 @@ import (
 	"github.com/Masterminds/squirrel"
 
 	"OzonTest/internal/entity"
-	"OzonTest/internal/repository/db/storage"
 )
 
-type DatabaseCommentRepository struct {
-	storage *storage.Storage[entity.Comment]
+type DatabaseMedia struct {
+	commentStorage *Storage[entity.Comment]
+	postStorage    *Storage[entity.Post]
 }
 
-func NewDatabaseCommentRepository(storage *storage.Storage[entity.Comment]) *DatabaseCommentRepository {
-	return &DatabaseCommentRepository{storage: storage}
+func NewDatabaseMedia(commentStorage *Storage[entity.Comment], postStorage *Storage[entity.Post]) *DatabaseMedia {
+	return &DatabaseMedia{commentStorage: commentStorage, postStorage: postStorage}
 }
 
-func (d *DatabaseCommentRepository) Create(ctx context.Context, input entity.Comment) (*entity.Comment, error) {
+func (d *DatabaseMedia) CreateComment(ctx context.Context, input entity.Comment) (*entity.Comment, error) {
 	comment := &entity.Comment{}
 
 	queryBuilder := squirrel.Insert("comment").
@@ -32,7 +32,7 @@ func (d *DatabaseCommentRepository) Create(ctx context.Context, input entity.Com
 		return comment, fmt.Errorf("error building query: %w", err)
 	}
 
-	*comment, err = d.storage.ExecuteInsert(ctx, query, args...)
+	*comment, err = d.commentStorage.Insert(ctx, query, args...)
 	if err != nil {
 		return comment, fmt.Errorf("error inserting comment: %w", err)
 	}
@@ -40,7 +40,7 @@ func (d *DatabaseCommentRepository) Create(ctx context.Context, input entity.Com
 	return comment, nil
 }
 
-func (d *DatabaseCommentRepository) CreateRepComment(ctx context.Context, input entity.Comment) (*entity.Comment, error) {
+func (d *DatabaseMedia) CreateRepComment(ctx context.Context, input entity.Comment) (*entity.Comment, error) {
 	comment := &entity.Comment{}
 
 	queryBuilder := squirrel.Insert("comment").
@@ -52,7 +52,7 @@ func (d *DatabaseCommentRepository) CreateRepComment(ctx context.Context, input 
 		return comment, fmt.Errorf("error building query: %w", err)
 	}
 
-	*comment, err = d.storage.ExecuteInsert(ctx, query, args...)
+	*comment, err = d.commentStorage.Insert(ctx, query, args...)
 	if err != nil {
 		return comment, fmt.Errorf("error inserting comment: %w", err)
 	}
@@ -60,7 +60,7 @@ func (d *DatabaseCommentRepository) CreateRepComment(ctx context.Context, input 
 	return comment, nil
 }
 
-func (d *DatabaseCommentRepository) GetById(ctx context.Context, ID int,
+func (d *DatabaseMedia) GetCommentById(ctx context.Context, ID int,
 	pagination entity.Pagination) (*entity.Comment, error) {
 	comment := &entity.Comment{}
 
@@ -73,7 +73,7 @@ func (d *DatabaseCommentRepository) GetById(ctx context.Context, ID int,
 		return comment, fmt.Errorf("error building query: %w", err)
 	}
 
-	err = d.storage.QueryRowContext(ctx, query, args).
+	err = d.commentStorage.QueryRowContext(ctx, query, args).
 		Scan(&comment.ID, &comment.ParentID, &comment.PostID, &comment.UserID, &comment.Content, &comment.Timestamp)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -92,7 +92,7 @@ func (d *DatabaseCommentRepository) GetById(ctx context.Context, ID int,
 	return comment, nil
 }
 
-func (d *DatabaseCommentRepository) getReplies(ctx context.Context, ID int,
+func (d *DatabaseMedia) getReplies(ctx context.Context, ID int,
 	pagination entity.Pagination) ([]*entity.Comment, error) {
 	var comments []*entity.Comment
 
@@ -113,7 +113,7 @@ func (d *DatabaseCommentRepository) getReplies(ctx context.Context, ID int,
 		return comments, fmt.Errorf("error building query: %w", err)
 	}
 
-	rows, err := d.storage.QueryContext(ctx, query, args)
+	rows, err := d.commentStorage.QueryContext(ctx, query, args)
 	if err != nil {
 		return comments, fmt.Errorf("error fetching replies comments: %w", err)
 	}
@@ -136,7 +136,7 @@ func (d *DatabaseCommentRepository) getReplies(ctx context.Context, ID int,
 	return comments, nil
 }
 
-func (d *DatabaseCommentRepository) GetAll(ctx context.Context, filter entity.CommentFilter,
+func (d *DatabaseMedia) GetAllComments(ctx context.Context, filter entity.CommentFilter,
 	pagination entity.Pagination) ([]*entity.Comment, error) {
 	var comments []*entity.Comment
 
@@ -160,7 +160,7 @@ func (d *DatabaseCommentRepository) GetAll(ctx context.Context, filter entity.Co
 		return comments, fmt.Errorf("error building SQL query: %w", err)
 	}
 
-	rows, err := d.storage.QueryContext(ctx, query, args)
+	rows, err := d.commentStorage.QueryContext(ctx, query, args)
 	if err != nil {
 		return comments, fmt.Errorf("error fetching posts: %w", err)
 	}
@@ -183,7 +183,7 @@ func (d *DatabaseCommentRepository) GetAll(ctx context.Context, filter entity.Co
 	return comments, nil
 }
 
-func (d *DatabaseCommentRepository) Delete(ctx context.Context, ID int) error {
+func (d *DatabaseMedia) DeleteComment(ctx context.Context, ID int) error {
 	queryBuilder := squirrel.Delete("comment").
 		Where(squirrel.Eq{"post_id": ID})
 
@@ -192,10 +192,132 @@ func (d *DatabaseCommentRepository) Delete(ctx context.Context, ID int) error {
 		return fmt.Errorf("error building SQL query: %w", err)
 	}
 
-	err = d.storage.ExecuteDelete(ctx, query, args...)
+	err = d.commentStorage.Delete(ctx, query, args...)
 	if err != nil {
 		return fmt.Errorf("failed to delete comment: %w", err)
 	}
 
 	return nil
+}
+
+func (d *DatabaseMedia) CreatePost(ctx context.Context, input entity.Post) (*entity.Post, error) {
+	post := &entity.Post{}
+
+	queryBuilder := squirrel.Insert("post").
+		Columns("user_id", "content", "is_open", "timestamp").
+		Values(input.UserID, input.Content, input.IsOpen, input.Timestamp)
+	query, args, err := queryBuilder.ToSql()
+
+	if err != nil {
+		return post, fmt.Errorf("error building query: %w", err)
+	}
+
+	*post, err = d.postStorage.Insert(ctx, query, args...)
+	if err != nil {
+		return post, fmt.Errorf("error inserting post: %w", err)
+	}
+
+	return post, nil
+}
+
+func (d *DatabaseMedia) GetByIdPost(ctx context.Context, ID int) (*entity.Post, error) {
+	post := &entity.Post{}
+
+	queryBuilder := squirrel.Select("id", "user_id", "content", "is_open", "timestamp").
+		From("post").
+		Where(squirrel.Eq{"id": ID})
+	query, args, err := queryBuilder.ToSql()
+
+	if err != nil {
+		return post, fmt.Errorf("error building query: %w", err)
+	}
+
+	err = d.postStorage.QueryRowContext(ctx, query, args).Scan(&post.PostID, &post.UserID, &post.Content,
+		&post.IsOpen, &post.Timestamp)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return post, fmt.Errorf("post not found: %w", err)
+		}
+		return post, fmt.Errorf("error fetching post by ID: %w", err)
+	}
+	return post, nil
+}
+
+func (d *DatabaseMedia) GetAllPosts(ctx context.Context, filter entity.PostFilter,
+	pagination entity.Pagination) ([]*entity.Post, error) {
+	var posts []*entity.Post
+
+	queryBuilder := squirrel.Select("id", "user_id", "content", "is_open", "timestamp").
+		OrderBy("timestamp").
+		From("post")
+
+	if filter.UserID != 0 {
+		queryBuilder = queryBuilder.Where(squirrel.Eq{"user_id": filter.UserID})
+	}
+
+	queryBuilder = queryBuilder.Limit(uint64(*pagination.Limit)).Offset(uint64(*pagination.Offset))
+
+	query, args, err := queryBuilder.ToSql()
+	if err != nil {
+		return posts, fmt.Errorf("error building SQL query: %w", err)
+	}
+
+	rows, err := d.postStorage.QueryContext(ctx, query, args)
+	if err != nil {
+		return posts, fmt.Errorf("error fetching posts: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		post := &entity.Post{}
+		if err := rows.Scan(&post.PostID, &post.UserID, &post.Content, &post.IsOpen, &post.Timestamp); err != nil {
+			return nil, fmt.Errorf("error scanning post: %w", err)
+		}
+
+		posts = append(posts, post)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating posts: %w", err)
+	}
+
+	return posts, nil
+}
+
+func (d *DatabaseMedia) DeletePost(ctx context.Context, ID int) error {
+	queryBuilder := squirrel.Delete("post").
+		Where(squirrel.Eq{"id": ID})
+
+	query, args, err := queryBuilder.ToSql()
+	if err != nil {
+		return fmt.Errorf("error building SQL query: %w", err)
+	}
+
+	err = d.postStorage.Delete(ctx, query, args...)
+	if err != nil {
+		return fmt.Errorf("failed to delete post: %w", err)
+	}
+
+	return nil
+}
+
+func (d *DatabaseMedia) SwitchCommentsState(ctx context.Context, ID int, flag bool) (*entity.Post, error) {
+	post := &entity.Post{}
+
+	queryBuilder := squirrel.Update("post").
+		Set("is_open", flag).
+		Where(squirrel.Eq{"id": ID}).
+		Suffix("RETURNING *")
+
+	query, args, err := queryBuilder.ToSql()
+	if err != nil {
+		return post, fmt.Errorf("failed to build query: %w", err)
+	}
+
+	*post, err = d.postStorage.ExecuteUpdate(ctx, query, args...)
+	if err != nil {
+		return post, err
+	}
+
+	return post, nil
 }

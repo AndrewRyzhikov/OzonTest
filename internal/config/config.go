@@ -21,7 +21,7 @@ type HttpServerConfig struct {
 
 type DataBaseConfig struct {
 	Host     string `yaml:"host" env-required:"true"`
-	Port     int    `yaml:"port" env-required:"true"`
+	Port     uint64 `yaml:"port" env-required:"true"`
 	User     string `yaml:"user" env-required:"true"`
 	Password string `yaml:"password" env-required:"true"`
 	DbName   string `yaml:"dbname" env-required:"true"`
