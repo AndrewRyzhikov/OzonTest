@@ -2,13 +2,12 @@ package inmemory
 
 import (
 	"context"
-	"errors"
 	"sync"
 
 	"OzonTest/internal/entity"
 )
 
-type posts map[int]post
+type posts map[int]*post
 type Media struct {
 	posts        posts
 	keyGenerator int
@@ -49,7 +48,12 @@ func (media *Media) GetByIdPost(ctx context.Context, ID int) (*entity.Post, erro
 func (media *Media) GetAllPosts(ctx context.Context, filter entity.PostFilter, pagination entity.Pagination) ([]*entity.Post, error) {
 	media.RLock()
 	defer media.RUnlock()
+	posts := make([]*entity.Post, 0, len(media.posts))
 
+	for _, p := range media.posts {
+		posts = append(posts, toEntityPost(p))
+	}
+	return posts, nil
 }
 
 func (media *Media) DeletePost(ctx context.Context, ID int) error {
@@ -71,7 +75,7 @@ func (media *Media) CreateComment(_ context.Context, input entity.Comment) (*ent
 	defer media.Unlock()
 
 	input.ID = media.keyGenerator
-	media.comments[media.keyGenerator] = &input
+	//media.comments[media.keyGenerator] = &input
 
 	media.keyGenerator++
 
@@ -81,9 +85,9 @@ func (media *Media) CreateComment(_ context.Context, input entity.Comment) (*ent
 func (media *Media) CreateRepComment(ctx context.Context, input entity.Comment) (*entity.Comment, error) {
 	media.Lock()
 
-	if _, ok := media.comments[input.ParentID]; !ok {
-		return &entity.Comment{}, errors.New("parent ID not found")
-	}
+	//if _, ok := media.comments[input.ParentID]; !ok {
+	//	return &entity.Comment{}, errors.New("parent ID not found")
+	//}
 
 	media.Unlock()
 
@@ -91,7 +95,8 @@ func (media *Media) CreateRepComment(ctx context.Context, input entity.Comment) 
 }
 
 func (media *Media) GetCommentById(_ context.Context, ID int, pagination entity.Pagination) (*entity.Comment, error) {
-	media.RLock()
+	//TODO implement me
+	panic("implement me")
 }
 
 func (media *Media) GetAllComments(_ context.Context, filter entity.CommentFilter, pagination entity.Pagination) ([]*entity.Comment, error) {
