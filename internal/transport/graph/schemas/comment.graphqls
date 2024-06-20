@@ -26,6 +26,6 @@ input RepCommentInput {
 }
 
 input CommentFilter {
-    postID: ID!
-    userID: ID!
+    postID: ID
+    userID: ID
 }

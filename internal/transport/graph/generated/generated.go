@@ -519,8 +519,8 @@ input RepCommentInput {
 }
 
 input CommentFilter {
-    postID: ID!
-    userID: ID!
+    postID: ID
+    userID: ID
 }`, BuiltIn: false},
 	{Name: "../schemas/post.graphqls", Input: `type Post {
     id: ID!
@@ -4227,14 +4227,14 @@ func (ec *executionContext) unmarshalInputCommentFilter(ctx context.Context, obj
 		switch k {
 		case "postID":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("postID"))
-			data, err := ec.unmarshalNID2int(ctx, v)
+			data, err := ec.unmarshalOID2ᚖint(ctx, v)
 			if err != nil {
 				return it, err
 			}
 			it.PostID = data
 		case "userID":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("userID"))
-			data, err := ec.unmarshalNID2int(ctx, v)
+			data, err := ec.unmarshalOID2ᚖint(ctx, v)
 			if err != nil {
 				return it, err
 			}

@@ -25,7 +25,7 @@ func (p *PostService) GetById(ctx context.Context, ID int, pagination entity.Pag
 		return &entity.Post{}, err
 	}
 
-	post.Comments, err = p.repository.GetAllComments(ctx, &entity.CommentFilter{PostID: ID}, pagination)
+	post.Comments, err = p.repository.GetAllComments(ctx, &entity.CommentFilter{PostID: &ID}, pagination)
 	if err != nil {
 		return &entity.Post{}, err
 	}

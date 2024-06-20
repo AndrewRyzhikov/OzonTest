@@ -147,8 +147,11 @@ func (d *DatabaseMedia) GetAllComments(ctx context.Context, filter *entity.Comme
 		OrderBy("timestamp")
 
 	if filter != nil {
-		if filter.UserID != 0 {
+		if filter.UserID != nil {
 			queryBuilder = queryBuilder.Where(squirrel.Eq{"user_id": filter.UserID})
+		}
+		if filter.PostID != nil {
+			queryBuilder = queryBuilder.Where(squirrel.Eq{"post_id": filter.PostID})
 		}
 	}
 
@@ -159,12 +162,12 @@ func (d *DatabaseMedia) GetAllComments(ctx context.Context, filter *entity.Comme
 		queryBuilder = queryBuilder.Offset(uint64(*pagination.Offset))
 	}
 
-	query, _, err := queryBuilder.ToSql()
+	query, args, err := queryBuilder.ToSql()
 	if err != nil {
 		return comments, fmt.Errorf("error building SQL query: %w", err)
 	}
 
-	rows, err := d.commentStorage.QueryxContext(ctx, query)
+	rows, err := d.commentStorage.QueryxContext(ctx, query, args...)
 	if err != nil {
 		return comments, fmt.Errorf("error fetching comments: %w", err)
 	}

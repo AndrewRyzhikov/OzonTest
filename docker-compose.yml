@@ -26,10 +26,8 @@ services:
     build: .
     ports:
       - 8080:8080
-    environment:
-      PORT: 8080
-      DBConn: postgres://postgres:postgres@db/postgres?sslmode=disable
-      REPO_TYPE: postgres
+    env_file:
+      - .env
 
 volumes:
   db:

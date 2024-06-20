@@ -172,8 +172,8 @@ func filterComments(comments []*entity.Comment, filter *entity.CommentFilter) []
 
 	var filteredComments []*entity.Comment
 	for _, comment := range comments {
-		if (filter.PostID == 0 || comment.PostID == filter.PostID) &&
-			(filter.UserID == 0 || comment.UserID == filter.UserID) {
+		if (filter.PostID == nil || comment.PostID == *filter.PostID) &&
+			(filter.UserID == nil || comment.UserID == *filter.UserID) {
 			filteredComments = append(filteredComments, comment)
 		}
 	}

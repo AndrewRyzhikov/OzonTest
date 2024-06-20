@@ -19,6 +19,6 @@ func (c *Comment) GetTimestamp() time.Time {
 }
 
 type CommentFilter struct {
-	PostID int `json:"postID"`
-	UserID int `json:"userID"`
+	PostID *int `json:"postID"`
+	UserID *int `json:"userID"`
 }
