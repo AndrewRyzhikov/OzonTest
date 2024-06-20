@@ -59,7 +59,7 @@ func (r *mutationResolver) CreateComment(ctx context.Context, input model.Commen
 			Timestamp: input.Timestamp,
 		})
 
-	if err != nil {
+	if err == nil {
 		r.SubscriptionService.NotifySubscribers(comment)
 	}
 
