@@ -16,95 +16,182 @@ type Media struct {
 }
 
 func NewMedia() *Media {
-	return &Media{posts: make(posts)}
+	return &Media{posts: make(posts), keyGenerator: 1}
 }
 
-func (media *Media) CreatePost(ctx context.Context, input entity.Post) (*entity.Post, error) {
+func (media *Media) CreatePost(_ context.Context, input entity.Post) (*entity.Post, error) {
 	media.Lock()
 	defer media.Unlock()
 
-	p, ok := media.posts[input.PostID]
+	_, ok := media.posts[input.ID]
 	if ok {
-		return &entity.Post{}, entity.ErrAlreadyExists
+		return &entity.Post{}, entity.ErrAlreadyExists("post", input.ID)
 	}
 
-	p.insert(input)
+	newPost := newPost(media.keyGenerator, input)
+	media.posts[newPost.PostID] = newPost
+	media.keyGenerator++
 
-	return toEntityPost(p), nil
+	return toEntityPost(newPost), nil
 }
 
-func (media *Media) GetByIdPost(ctx context.Context, ID int) (*entity.Post, error) {
+func (media *Media) GetByIdPost(_ context.Context, ID int) (*entity.Post, error) {
 	media.RLock()
 	defer media.RUnlock()
 
 	p, ok := media.posts[ID]
 	if !ok {
-		return &entity.Post{}, entity.ErrNotFound
+		return &entity.Post{}, entity.ErrNotFound("post", ID)
 	}
 
 	return toEntityPost(p), nil
 }
 
-func (media *Media) GetAllPosts(ctx context.Context, filter entity.PostFilter, pagination entity.Pagination) ([]*entity.Post, error) {
+func (media *Media) GetAllPosts(_ context.Context, filter *entity.PostFilter, pagination entity.Pagination) ([]*entity.Post, error) {
 	media.RLock()
 	defer media.RUnlock()
 	posts := make([]*entity.Post, 0, len(media.posts))
 
 	for _, p := range media.posts {
-		posts = append(posts, toEntityPost(p))
+		if filter == nil || filter.UserID == p.UserID {
+			posts = append(posts, toEntityPost(p))
+		}
 	}
-	return posts, nil
+
+	paginationPosts := SortWithPagination[*entity.Post](posts, pagination)
+
+	return paginationPosts, nil
 }
 
-func (media *Media) DeletePost(ctx context.Context, ID int) error {
-	//TODO implement me
-	panic("implement me")
+func (media *Media) DeletePost(_ context.Context, ID int) error {
+	media.Lock()
+	defer media.Unlock()
+
+	if _, ok := media.posts[ID]; !ok {
+		return entity.ErrNotFound("post", ID)
+	}
+
+	for key := range media.posts[ID].Comments {
+		delete(media.posts[ID].Comments, key)
+	}
+
+	delete(media.posts, ID)
+
+	return nil
 }
 
-func (media *Media) SwitchCommentsState(ctx context.Context, ID int, state bool) (*entity.Post, error) {
-	//TODO implement me
-	panic("implement me")
-}
+func (media *Media) SwitchCommentsState(_ context.Context, ID int, state bool) (*entity.Post, error) {
+	media.RLock()
+	defer media.RUnlock()
+	p, ok := media.posts[ID]
+	if !ok {
+		return &entity.Post{}, entity.ErrNotFound("post", ID)
+	}
+	p.IsOpen = state
 
-func NewCommentInMemory() *Media {
-	return &Media{posts: make(posts), keyGenerator: 1}
+	return toEntityPost(p), nil
 }
 
 func (media *Media) CreateComment(_ context.Context, input entity.Comment) (*entity.Comment, error) {
 	media.Lock()
 	defer media.Unlock()
 
-	input.ID = media.keyGenerator
-	//media.comments[media.keyGenerator] = &input
+	p, ok := media.posts[input.PostID]
+	if !ok {
+		return &entity.Comment{}, entity.ErrNotFound("post", input.PostID)
+	}
 
-	media.keyGenerator++
+	if !p.IsOpen {
+		return &entity.Comment{}, entity.ErrPostCommentsDisable
+	}
 
-	return &input, nil
+	return p.insertComment(&input)
 }
 
-func (media *Media) CreateRepComment(ctx context.Context, input entity.Comment) (*entity.Comment, error) {
+func (media *Media) CreateRepComment(_ context.Context, input entity.Comment) (*entity.Comment, error) {
 	media.Lock()
+	defer media.Unlock()
 
-	//if _, ok := media.comments[input.ParentID]; !ok {
-	//	return &entity.Comment{}, errors.New("parent ID not found")
-	//}
+	p, ok := media.posts[input.PostID]
+	if !ok {
+		return &entity.Comment{}, entity.ErrNotFound("post", input.PostID)
+	}
 
-	media.Unlock()
-
-	return media.CreateComment(ctx, input)
+	return p.insertRepComment(&input)
 }
 
 func (media *Media) GetCommentById(_ context.Context, ID int, pagination entity.Pagination) (*entity.Comment, error) {
-	//TODO implement me
-	panic("implement me")
+	media.RLock()
+	defer media.RUnlock()
+	comment := &entity.Comment{}
+
+	for _, p := range media.posts {
+		if tmp, ok := p.findComment(ID); ok {
+			comment = tmp
+			break
+		}
+	}
+
+	if comment == nil {
+		return comment, entity.ErrNotFound("comment", ID)
+	}
+
+	replies := SortWithPagination[*entity.Comment](comment.Replies, pagination)
+
+	newComment := &entity.Comment{
+		ID:        comment.ID,
+		ParentID:  comment.ParentID,
+		PostID:    comment.PostID,
+		UserID:    comment.UserID,
+		Content:   comment.Content,
+		Timestamp: comment.Timestamp,
+		Replies:   replies,
+	}
+
+	return newComment, nil
 }
 
-func (media *Media) GetAllComments(_ context.Context, filter entity.CommentFilter, pagination entity.Pagination) ([]*entity.Comment, error) {
-	//TODO implement me
-	panic("implement me")
+func (media *Media) GetAllComments(_ context.Context, filter *entity.CommentFilter, pagination entity.Pagination) ([]*entity.Comment, error) {
+	media.RLock()
+	defer media.RUnlock()
+
+	comments := make([]*entity.Comment, 0)
+
+	for _, p := range media.posts {
+		comments = append(comments, p.getAllComments()...)
+	}
+
+	filterComments := filterComments(comments, filter)
+
+	paginationComments := SortWithPagination[*entity.Comment](filterComments, pagination)
+	return paginationComments, nil
 }
 
-func (media *Media) DeleteComment(ctx context.Context, ID int) error {
-	//TODO implement me
-	panic("implement me")
+func filterComments(comments []*entity.Comment, filter *entity.CommentFilter) []*entity.Comment {
+	if filter == nil {
+		return comments
+	}
+
+	var filteredComments []*entity.Comment
+	for _, comment := range comments {
+		if (filter.PostID == 0 || comment.PostID == filter.PostID) &&
+			(filter.UserID == 0 || comment.UserID == filter.UserID) {
+			filteredComments = append(filteredComments, comment)
+		}
+	}
+
+	return filteredComments
+}
+
+func (media *Media) DeleteComment(_ context.Context, ID int) error {
+	media.Lock()
+	defer media.Unlock()
+
+	for _, p := range media.posts {
+		if _, ok := p.findComment(ID); ok {
+			return p.deleteComment(ID)
+		}
+	}
+
+	return entity.ErrNotFound("comment", ID)
 }

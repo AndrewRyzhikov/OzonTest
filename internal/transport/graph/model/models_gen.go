@@ -9,7 +9,6 @@ import (
 type CommentInput struct {
 	PostID    int       `json:"postID"`
 	UserID    int       `json:"userID"`
-	ParentID  int       `json:"parentID"`
 	Timestamp time.Time `json:"timestamp"`
 	Content   string    `json:"content"`
 }
@@ -25,6 +24,14 @@ type PostInput struct {
 }
 
 type Query struct {
+}
+
+type RepCommentInput struct {
+	PostID    int       `json:"postID"`
+	UserID    int       `json:"userID"`
+	ParentID  int       `json:"parentID"`
+	Timestamp time.Time `json:"timestamp"`
+	Content   string    `json:"content"`
 }
 
 type Subscription struct {

@@ -6,11 +6,14 @@ package graph
 
 import (
 	"context"
+	"unicode/utf8"
 
 	"OzonTest/internal/entity"
 	"OzonTest/internal/transport/graph/generated"
 	"OzonTest/internal/transport/graph/model"
 )
+
+var maxLenCommentContent = 2000
 
 // CreatePost is the resolver for the createPost field.
 func (r *mutationResolver) CreatePost(ctx context.Context, input model.PostInput) (*entity.Post, error) {
@@ -33,17 +36,21 @@ func (r *mutationResolver) DeletePost(ctx context.Context, id int) (bool, error)
 }
 
 // DisableComments is the resolver for the disableComments field.
-func (r *mutationResolver) DisableComments(ctx context.Context, postID int) (*entity.Post, error) {
-	return r.PostService.DisableComments(ctx, postID)
+func (r *mutationResolver) DisableComments(ctx context.Context, id int) (*entity.Post, error) {
+	return r.PostService.DisableComments(ctx, id)
 }
 
 // EnableComments is the resolver for the enableComments field.
-func (r *mutationResolver) EnableComments(ctx context.Context, postID int) (*entity.Post, error) {
-	return r.PostService.EnableComments(ctx, postID)
+func (r *mutationResolver) EnableComments(ctx context.Context, id int) (*entity.Post, error) {
+	return r.PostService.EnableComments(ctx, id)
 }
 
 // CreateComment is the resolver for the createComment field.
 func (r *mutationResolver) CreateComment(ctx context.Context, input model.CommentInput) (*entity.Comment, error) {
+	if utf8.RuneCountInString(input.Content) > maxLenCommentContent {
+		return &entity.Comment{}, entity.ErrBigContent
+	}
+
 	comment, err := r.CommentService.CreateComment(ctx,
 		entity.Comment{
 			PostID:    input.PostID,
@@ -59,6 +66,21 @@ func (r *mutationResolver) CreateComment(ctx context.Context, input model.Commen
 	return comment, err
 }
 
+// CreateSubComment is the resolver for the createSubComment field.
+func (r *mutationResolver) CreateSubComment(ctx context.Context, input model.RepCommentInput) (*entity.Comment, error) {
+	if utf8.RuneCountInString(input.Content) > maxLenCommentContent {
+		return &entity.Comment{}, entity.ErrBigContent
+	}
+
+	return r.CommentService.CreateRepComment(ctx, entity.Comment{
+		ParentID:  &input.ParentID,
+		PostID:    input.PostID,
+		UserID:    input.UserID,
+		Content:   input.Content,
+		Timestamp: input.Timestamp,
+	})
+}
+
 // DeleteComment is the resolver for the deleteComment field.
 func (r *mutationResolver) DeleteComment(ctx context.Context, id int) (bool, error) {
 	err := r.CommentService.DeleteComment(ctx, id)
@@ -70,7 +92,7 @@ func (r *mutationResolver) DeleteComment(ctx context.Context, id int) (bool, err
 }
 
 // Posts is the resolver for the posts field.
-func (r *queryResolver) Posts(ctx context.Context, filter entity.PostFilter, limit *int, offset *int) ([]*entity.Post, error) {
+func (r *queryResolver) Posts(ctx context.Context, filter *entity.PostFilter, limit *int, offset *int) ([]*entity.Post, error) {
 	return r.PostService.GetAll(ctx, filter, entity.Pagination{Limit: limit, Offset: offset})
 }
 
@@ -81,7 +103,7 @@ func (r *queryResolver) Post(ctx context.Context, id int, limit *int, offset *in
 
 // Comments is the resolver for the comments field.
 func (r *queryResolver) Comments(ctx context.Context, filter *entity.CommentFilter, limit *int, offset *int) ([]*entity.Comment, error) {
-	return r.CommentService.GetAllComments(ctx, *filter, entity.Pagination{Limit: limit, Offset: offset})
+	return r.CommentService.GetAllComments(ctx, filter, entity.Pagination{Limit: limit, Offset: offset})
 }
 
 // Comment is the resolver for the comment field.

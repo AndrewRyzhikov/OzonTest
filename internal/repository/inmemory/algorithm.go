@@ -1,18 +1,23 @@
 package inmemory
 
 import (
-	"OzonTest/internal/entity"
-	"fmt"
 	"sort"
+	"time"
+
+	"OzonTest/internal/entity"
 )
 
-func partition(v []entity.Post, l, r int) int {
+type Timestamped interface {
+	GetTimestamp() time.Time
+}
+
+func partition[T Timestamped](v []T, l, r int) int {
 	pivot := v[(l+r)/2]
 	for l <= r {
-		for v[l].Timestamp.Before(pivot.Timestamp) {
+		for v[l].GetTimestamp().Before(pivot.GetTimestamp()) {
 			l++
 		}
-		for v[r].Timestamp.After(pivot.Timestamp) {
+		for v[r].GetTimestamp().After(pivot.GetTimestamp()) {
 			r--
 		}
 		if l >= r {
@@ -25,37 +30,48 @@ func partition(v []entity.Post, l, r int) int {
 	return r
 }
 
-func findKthSmallest(posts []entity.Post, l, r, k int) {
-	if l == r {
+func findKthSmallest[T Timestamped](v []T, l, r, k int) {
+	if l >= r {
 		return
 	}
 
-	m := partition(posts, l, r)
+	m := partition[T](v, l, r)
 	if k > m {
-		findKthSmallest(posts, m+1, r, k)
+		findKthSmallest(v, m+1, r, k)
 	} else {
-		findKthSmallest(posts, l, m, k)
+		findKthSmallest(v, l, m, k)
 	}
 }
 
-func sortPosts(posts []entity.Post, pagination entity.Pagination) []entity.Post {
-	p := make([]entity.Post, 0)
-	for i := *pagination.Offset; i < len(posts); i++ {
-		p = append(p, posts[i])
+// SortWithPagination Instead of the classic sorting and taking a slice, this algorithm allows you to find the limit + offset of the earliest elements
+// and sort these elements already. Thanks to this approach, the asymptotic from O(n * log(n)) is reduced to O((limit + offset) * log(limit + offset))
+func SortWithPagination[T Timestamped](items []T, pagination entity.Pagination) []T {
+	offset, limit := 0, len(items)
+
+	if pagination.Offset != nil {
+		offset = *pagination.Offset
 	}
 
-	findKthSmallest(p, 0, len(p)-1, *pagination.Limit-1)
-
-	result := make([]entity.Post, *pagination.Limit)
-	for i := 0; i < *pagination.Limit; i++ {
-		result[i] = posts[i]
+	if pagination.Limit != nil {
+		limit = *pagination.Limit
 	}
 
-	fmt.Println(result)
-	sort.Slice(result, func(i, j int) bool {
-		return result[i].Timestamp.Before(result[j].Timestamp)
+	copyItems := make([]T, len(items))
+	copy(copyItems, items)
+
+	size := min(limit+offset, len(copyItems))
+	findKthSmallest(copyItems, 0, len(copyItems)-1, size-1)
+	sortingItems := make([]T, size)
+	copy(sortingItems, copyItems[:size])
+
+	sort.Slice(sortingItems, func(i, j int) bool {
+		return sortingItems[i].GetTimestamp().Before(sortingItems[j].GetTimestamp())
 	})
-	fmt.Println(result)
+
+	result := make([]T, min(limit, size))
+	for i := 0; i < len(result) && i+offset < size; i++ {
+		result[i] = sortingItems[i+offset]
+	}
 
 	return result
 }

@@ -1,5 +1,5 @@
 type Query {
-  posts(filter: PostFilter!, limit: Int, offset: Int): [Post!]!
+  posts(filter: PostFilter, limit: Int, offset: Int): [Post!]!
   post(id: ID!, limit: Int, offset: Int): Post!
 
   comments(filter: CommentFilter, limit: Int, offset: Int): [Comment!]!
@@ -9,10 +9,11 @@ type Query {
 type Mutation {
   createPost(input: PostInput!): Post!
   deletePost(id: ID!): Boolean!
-  disableComments(postID: ID!): Post!
-  enableComments(postID: ID!): Post!
+  disableComments(id: ID!): Post!
+  enableComments(id: ID!): Post!
 
   createComment(input: CommentInput!): Comment!
+  createSubComment(input: RepCommentInput!): Comment!
   deleteComment(id: ID!): Boolean!
 }
 

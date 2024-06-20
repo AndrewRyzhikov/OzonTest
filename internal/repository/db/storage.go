@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/jmoiron/sqlx"
+	_ "github.com/lib/pq"
 
 	"OzonTest/internal/config"
 )
@@ -13,8 +14,10 @@ type Storage[T any] struct {
 	*sqlx.DB
 }
 
+var DriverName = "postgres"
+
 func NewStorage[T any](cfg config.DataBaseConfig) (*Storage[T], error) {
-	db, err := sqlx.Open(cfg.Driver, dataToPSQLConnection(cfg.Port, cfg.Host, cfg.User, cfg.Password, cfg.DbName))
+	db, err := sqlx.Connect(DriverName, dataToPSQLConnection(cfg.Port, cfg.Host, cfg.User, cfg.Password, cfg.DbName))
 	if err != nil {
 		return nil, fmt.Errorf("error connecting to the database: %v", err)
 	}

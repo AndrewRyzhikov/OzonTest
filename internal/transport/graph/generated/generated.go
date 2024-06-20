@@ -61,19 +61,20 @@ type ComplexityRoot struct {
 	}
 
 	Mutation struct {
-		CreateComment   func(childComplexity int, input model.CommentInput) int
-		CreatePost      func(childComplexity int, input model.PostInput) int
-		DeleteComment   func(childComplexity int, id int) int
-		DeletePost      func(childComplexity int, id int) int
-		DisableComments func(childComplexity int, postID int) int
-		EnableComments  func(childComplexity int, postID int) int
+		CreateComment    func(childComplexity int, input model.CommentInput) int
+		CreatePost       func(childComplexity int, input model.PostInput) int
+		CreateSubComment func(childComplexity int, input model.RepCommentInput) int
+		DeleteComment    func(childComplexity int, id int) int
+		DeletePost       func(childComplexity int, id int) int
+		DisableComments  func(childComplexity int, id int) int
+		EnableComments   func(childComplexity int, id int) int
 	}
 
 	Post struct {
 		Comments  func(childComplexity int) int
 		Content   func(childComplexity int) int
+		ID        func(childComplexity int) int
 		IsOpen    func(childComplexity int) int
-		PostID    func(childComplexity int) int
 		Timestamp func(childComplexity int) int
 		UserID    func(childComplexity int) int
 	}
@@ -82,7 +83,7 @@ type ComplexityRoot struct {
 		Comment  func(childComplexity int, id int, limit *int, offset *int) int
 		Comments func(childComplexity int, filter *entity.CommentFilter, limit *int, offset *int) int
 		Post     func(childComplexity int, id int, limit *int, offset *int) int
-		Posts    func(childComplexity int, filter entity.PostFilter, limit *int, offset *int) int
+		Posts    func(childComplexity int, filter *entity.PostFilter, limit *int, offset *int) int
 	}
 
 	Subscription struct {
@@ -93,13 +94,14 @@ type ComplexityRoot struct {
 type MutationResolver interface {
 	CreatePost(ctx context.Context, input model.PostInput) (*entity.Post, error)
 	DeletePost(ctx context.Context, id int) (bool, error)
-	DisableComments(ctx context.Context, postID int) (*entity.Post, error)
-	EnableComments(ctx context.Context, postID int) (*entity.Post, error)
+	DisableComments(ctx context.Context, id int) (*entity.Post, error)
+	EnableComments(ctx context.Context, id int) (*entity.Post, error)
 	CreateComment(ctx context.Context, input model.CommentInput) (*entity.Comment, error)
+	CreateSubComment(ctx context.Context, input model.RepCommentInput) (*entity.Comment, error)
 	DeleteComment(ctx context.Context, id int) (bool, error)
 }
 type QueryResolver interface {
-	Posts(ctx context.Context, filter entity.PostFilter, limit *int, offset *int) ([]*entity.Post, error)
+	Posts(ctx context.Context, filter *entity.PostFilter, limit *int, offset *int) ([]*entity.Post, error)
 	Post(ctx context.Context, id int, limit *int, offset *int) (*entity.Post, error)
 	Comments(ctx context.Context, filter *entity.CommentFilter, limit *int, offset *int) ([]*entity.Comment, error)
 	Comment(ctx context.Context, id int, limit *int, offset *int) (*entity.Comment, error)
@@ -200,6 +202,18 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Mutation.CreatePost(childComplexity, args["input"].(model.PostInput)), true
 
+	case "Mutation.createSubComment":
+		if e.complexity.Mutation.CreateSubComment == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_createSubComment_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.CreateSubComment(childComplexity, args["input"].(model.RepCommentInput)), true
+
 	case "Mutation.deleteComment":
 		if e.complexity.Mutation.DeleteComment == nil {
 			break
@@ -234,7 +248,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Mutation.DisableComments(childComplexity, args["postID"].(int)), true
+		return e.complexity.Mutation.DisableComments(childComplexity, args["id"].(int)), true
 
 	case "Mutation.enableComments":
 		if e.complexity.Mutation.EnableComments == nil {
@@ -246,7 +260,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Mutation.EnableComments(childComplexity, args["postID"].(int)), true
+		return e.complexity.Mutation.EnableComments(childComplexity, args["id"].(int)), true
 
 	case "Post.comments":
 		if e.complexity.Post.Comments == nil {
@@ -262,19 +276,19 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Post.Content(childComplexity), true
 
+	case "Post.id":
+		if e.complexity.Post.ID == nil {
+			break
+		}
+
+		return e.complexity.Post.ID(childComplexity), true
+
 	case "Post.isOpen":
 		if e.complexity.Post.IsOpen == nil {
 			break
 		}
 
 		return e.complexity.Post.IsOpen(childComplexity), true
-
-	case "Post.postID":
-		if e.complexity.Post.PostID == nil {
-			break
-		}
-
-		return e.complexity.Post.PostID(childComplexity), true
 
 	case "Post.timestamp":
 		if e.complexity.Post.Timestamp == nil {
@@ -336,7 +350,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Query.Posts(childComplexity, args["filter"].(entity.PostFilter), args["limit"].(*int), args["offset"].(*int)), true
+		return e.complexity.Query.Posts(childComplexity, args["filter"].(*entity.PostFilter), args["limit"].(*int), args["offset"].(*int)), true
 
 	case "Subscription.newComment":
 		if e.complexity.Subscription.NewComment == nil {
@@ -362,6 +376,7 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 		ec.unmarshalInputCommentInput,
 		ec.unmarshalInputPostFilter,
 		ec.unmarshalInputPostInput,
+		ec.unmarshalInputRepCommentInput,
 	)
 	first := true
 
@@ -480,7 +495,7 @@ var sources = []*ast.Source{
 
 type Comment {
     ID: ID!
-    parentID: ID!
+    parentID: ID
     postID: ID!
     userID: ID!
     content: String!
@@ -489,6 +504,13 @@ type Comment {
 }
 
 input CommentInput {
+    postID: ID!
+    userID: ID!
+    timestamp: Timestamp!
+    content: String!
+}
+
+input RepCommentInput {
     postID: ID!
     userID: ID!
     parentID: ID!
@@ -501,7 +523,7 @@ input CommentFilter {
     userID: ID!
 }`, BuiltIn: false},
 	{Name: "../schemas/post.graphqls", Input: `type Post {
-    postID: ID!
+    id: ID!
     userID: ID!
     content: String!
     comments: [Comment]!
@@ -520,7 +542,7 @@ input PostFilter {
     userID: ID!
 }`, BuiltIn: false},
 	{Name: "../schemas/schema.graphqls", Input: `type Query {
-  posts(filter: PostFilter!, limit: Int, offset: Int): [Post!]!
+  posts(filter: PostFilter, limit: Int, offset: Int): [Post!]!
   post(id: ID!, limit: Int, offset: Int): Post!
 
   comments(filter: CommentFilter, limit: Int, offset: Int): [Comment!]!
@@ -530,10 +552,11 @@ input PostFilter {
 type Mutation {
   createPost(input: PostInput!): Post!
   deletePost(id: ID!): Boolean!
-  disableComments(postID: ID!): Post!
-  enableComments(postID: ID!): Post!
+  disableComments(id: ID!): Post!
+  enableComments(id: ID!): Post!
 
   createComment(input: CommentInput!): Comment!
+  createSubComment(input: RepCommentInput!): Comment!
   deleteComment(id: ID!): Boolean!
 }
 
@@ -577,6 +600,21 @@ func (ec *executionContext) field_Mutation_createPost_args(ctx context.Context, 
 	return args, nil
 }
 
+func (ec *executionContext) field_Mutation_createSubComment_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	var arg0 model.RepCommentInput
+	if tmp, ok := rawArgs["input"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("input"))
+		arg0, err = ec.unmarshalNRepCommentInput2OzonTestᚋinternalᚋtransportᚋgraphᚋmodelᚐRepCommentInput(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
 func (ec *executionContext) field_Mutation_deleteComment_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	args := map[string]interface{}{}
@@ -611,14 +649,14 @@ func (ec *executionContext) field_Mutation_disableComments_args(ctx context.Cont
 	var err error
 	args := map[string]interface{}{}
 	var arg0 int
-	if tmp, ok := rawArgs["postID"]; ok {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("postID"))
+	if tmp, ok := rawArgs["id"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("id"))
 		arg0, err = ec.unmarshalNID2int(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
 	}
-	args["postID"] = arg0
+	args["id"] = arg0
 	return args, nil
 }
 
@@ -626,14 +664,14 @@ func (ec *executionContext) field_Mutation_enableComments_args(ctx context.Conte
 	var err error
 	args := map[string]interface{}{}
 	var arg0 int
-	if tmp, ok := rawArgs["postID"]; ok {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("postID"))
+	if tmp, ok := rawArgs["id"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("id"))
 		arg0, err = ec.unmarshalNID2int(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
 	}
-	args["postID"] = arg0
+	args["id"] = arg0
 	return args, nil
 }
 
@@ -754,10 +792,10 @@ func (ec *executionContext) field_Query_post_args(ctx context.Context, rawArgs m
 func (ec *executionContext) field_Query_posts_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	args := map[string]interface{}{}
-	var arg0 entity.PostFilter
+	var arg0 *entity.PostFilter
 	if tmp, ok := rawArgs["filter"]; ok {
 		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("filter"))
-		arg0, err = ec.unmarshalNPostFilter2OzonTestᚋinternalᚋentityᚐPostFilter(ctx, tmp)
+		arg0, err = ec.unmarshalOPostFilter2ᚖOzonTestᚋinternalᚋentityᚐPostFilter(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -911,14 +949,11 @@ func (ec *executionContext) _Comment_parentID(ctx context.Context, field graphql
 		return graphql.Null
 	}
 	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
 		return graphql.Null
 	}
-	res := resTmp.(int)
+	res := resTmp.(*int)
 	fc.Result = res
-	return ec.marshalNID2int(ctx, field.Selections, res)
+	return ec.marshalOID2ᚖint(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Comment_parentID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -1209,8 +1244,8 @@ func (ec *executionContext) fieldContext_Mutation_createPost(ctx context.Context
 		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
-			case "postID":
-				return ec.fieldContext_Post_postID(ctx, field)
+			case "id":
+				return ec.fieldContext_Post_id(ctx, field)
 			case "userID":
 				return ec.fieldContext_Post_userID(ctx, field)
 			case "content":
@@ -1308,7 +1343,7 @@ func (ec *executionContext) _Mutation_disableComments(ctx context.Context, field
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().DisableComments(rctx, fc.Args["postID"].(int))
+		return ec.resolvers.Mutation().DisableComments(rctx, fc.Args["id"].(int))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -1333,8 +1368,8 @@ func (ec *executionContext) fieldContext_Mutation_disableComments(ctx context.Co
 		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
-			case "postID":
-				return ec.fieldContext_Post_postID(ctx, field)
+			case "id":
+				return ec.fieldContext_Post_id(ctx, field)
 			case "userID":
 				return ec.fieldContext_Post_userID(ctx, field)
 			case "content":
@@ -1377,7 +1412,7 @@ func (ec *executionContext) _Mutation_enableComments(ctx context.Context, field 
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().EnableComments(rctx, fc.Args["postID"].(int))
+		return ec.resolvers.Mutation().EnableComments(rctx, fc.Args["id"].(int))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -1402,8 +1437,8 @@ func (ec *executionContext) fieldContext_Mutation_enableComments(ctx context.Con
 		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
-			case "postID":
-				return ec.fieldContext_Post_postID(ctx, field)
+			case "id":
+				return ec.fieldContext_Post_id(ctx, field)
 			case "userID":
 				return ec.fieldContext_Post_userID(ctx, field)
 			case "content":
@@ -1503,6 +1538,77 @@ func (ec *executionContext) fieldContext_Mutation_createComment(ctx context.Cont
 	return fc, nil
 }
 
+func (ec *executionContext) _Mutation_createSubComment(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Mutation_createSubComment(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Mutation().CreateSubComment(rctx, fc.Args["input"].(model.RepCommentInput))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*entity.Comment)
+	fc.Result = res
+	return ec.marshalNComment2ᚖOzonTestᚋinternalᚋentityᚐComment(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Mutation_createSubComment(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "ID":
+				return ec.fieldContext_Comment_ID(ctx, field)
+			case "parentID":
+				return ec.fieldContext_Comment_parentID(ctx, field)
+			case "postID":
+				return ec.fieldContext_Comment_postID(ctx, field)
+			case "userID":
+				return ec.fieldContext_Comment_userID(ctx, field)
+			case "content":
+				return ec.fieldContext_Comment_content(ctx, field)
+			case "timestamp":
+				return ec.fieldContext_Comment_timestamp(ctx, field)
+			case "replies":
+				return ec.fieldContext_Comment_replies(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Comment", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_createSubComment_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Mutation_deleteComment(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_Mutation_deleteComment(ctx, field)
 	if err != nil {
@@ -1558,8 +1664,8 @@ func (ec *executionContext) fieldContext_Mutation_deleteComment(ctx context.Cont
 	return fc, nil
 }
 
-func (ec *executionContext) _Post_postID(ctx context.Context, field graphql.CollectedField, obj *entity.Post) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Post_postID(ctx, field)
+func (ec *executionContext) _Post_id(ctx context.Context, field graphql.CollectedField, obj *entity.Post) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Post_id(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -1572,7 +1678,7 @@ func (ec *executionContext) _Post_postID(ctx context.Context, field graphql.Coll
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return obj.PostID, nil
+		return obj.ID, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -1589,7 +1695,7 @@ func (ec *executionContext) _Post_postID(ctx context.Context, field graphql.Coll
 	return ec.marshalNID2int(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_Post_postID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Post_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Post",
 		Field:      field,
@@ -1852,7 +1958,7 @@ func (ec *executionContext) _Query_posts(ctx context.Context, field graphql.Coll
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().Posts(rctx, fc.Args["filter"].(entity.PostFilter), fc.Args["limit"].(*int), fc.Args["offset"].(*int))
+		return ec.resolvers.Query().Posts(rctx, fc.Args["filter"].(*entity.PostFilter), fc.Args["limit"].(*int), fc.Args["offset"].(*int))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -1877,8 +1983,8 @@ func (ec *executionContext) fieldContext_Query_posts(ctx context.Context, field 
 		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
-			case "postID":
-				return ec.fieldContext_Post_postID(ctx, field)
+			case "id":
+				return ec.fieldContext_Post_id(ctx, field)
 			case "userID":
 				return ec.fieldContext_Post_userID(ctx, field)
 			case "content":
@@ -1946,8 +2052,8 @@ func (ec *executionContext) fieldContext_Query_post(ctx context.Context, field g
 		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
-			case "postID":
-				return ec.fieldContext_Post_postID(ctx, field)
+			case "id":
+				return ec.fieldContext_Post_id(ctx, field)
 			case "userID":
 				return ec.fieldContext_Post_userID(ctx, field)
 			case "content":
@@ -4146,7 +4252,7 @@ func (ec *executionContext) unmarshalInputCommentInput(ctx context.Context, obj 
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"postID", "userID", "parentID", "timestamp", "content"}
+	fieldsInOrder := [...]string{"postID", "userID", "timestamp", "content"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -4167,13 +4273,6 @@ func (ec *executionContext) unmarshalInputCommentInput(ctx context.Context, obj 
 				return it, err
 			}
 			it.UserID = data
-		case "parentID":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("parentID"))
-			data, err := ec.unmarshalNID2int(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.ParentID = data
 		case "timestamp":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("timestamp"))
 			data, err := ec.unmarshalNTimestamp2timeᚐTime(ctx, v)
@@ -4269,6 +4368,61 @@ func (ec *executionContext) unmarshalInputPostInput(ctx context.Context, obj int
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputRepCommentInput(ctx context.Context, obj interface{}) (model.RepCommentInput, error) {
+	var it model.RepCommentInput
+	asMap := map[string]interface{}{}
+	for k, v := range obj.(map[string]interface{}) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"postID", "userID", "parentID", "timestamp", "content"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "postID":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("postID"))
+			data, err := ec.unmarshalNID2int(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.PostID = data
+		case "userID":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("userID"))
+			data, err := ec.unmarshalNID2int(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.UserID = data
+		case "parentID":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("parentID"))
+			data, err := ec.unmarshalNID2int(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ParentID = data
+		case "timestamp":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("timestamp"))
+			data, err := ec.unmarshalNTimestamp2timeᚐTime(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Timestamp = data
+		case "content":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("content"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Content = data
+		}
+	}
+
+	return it, nil
+}
+
 // endregion **************************** input.gotpl *****************************
 
 // region    ************************** interface.gotpl ***************************
@@ -4295,9 +4449,6 @@ func (ec *executionContext) _Comment(ctx context.Context, sel ast.SelectionSet, 
 			}
 		case "parentID":
 			out.Values[i] = ec._Comment_parentID(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
 		case "postID":
 			out.Values[i] = ec._Comment_postID(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -4400,6 +4551,13 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "createSubComment":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_createSubComment(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		case "deleteComment":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_deleteComment(ctx, field)
@@ -4441,8 +4599,8 @@ func (ec *executionContext) _Post(ctx context.Context, sel ast.SelectionSet, obj
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("Post")
-		case "postID":
-			out.Values[i] = ec._Post_postID(ctx, field, obj)
+		case "id":
+			out.Values[i] = ec._Post_id(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -5167,13 +5325,13 @@ func (ec *executionContext) marshalNPost2ᚖOzonTestᚋinternalᚋentityᚐPost(
 	return ec._Post(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalNPostFilter2OzonTestᚋinternalᚋentityᚐPostFilter(ctx context.Context, v interface{}) (entity.PostFilter, error) {
-	res, err := ec.unmarshalInputPostFilter(ctx, v)
+func (ec *executionContext) unmarshalNPostInput2OzonTestᚋinternalᚋtransportᚋgraphᚋmodelᚐPostInput(ctx context.Context, v interface{}) (model.PostInput, error) {
+	res, err := ec.unmarshalInputPostInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNPostInput2OzonTestᚋinternalᚋtransportᚋgraphᚋmodelᚐPostInput(ctx context.Context, v interface{}) (model.PostInput, error) {
-	res, err := ec.unmarshalInputPostInput(ctx, v)
+func (ec *executionContext) unmarshalNRepCommentInput2OzonTestᚋinternalᚋtransportᚋgraphᚋmodelᚐRepCommentInput(ctx context.Context, v interface{}) (model.RepCommentInput, error) {
+	res, err := ec.unmarshalInputRepCommentInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
@@ -5501,6 +5659,22 @@ func (ec *executionContext) unmarshalOCommentFilter2ᚖOzonTestᚋinternalᚋent
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
+func (ec *executionContext) unmarshalOID2ᚖint(ctx context.Context, v interface{}) (*int, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := graphql.UnmarshalInt(v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOID2ᚖint(ctx context.Context, sel ast.SelectionSet, v *int) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	res := graphql.MarshalInt(*v)
+	return res
+}
+
 func (ec *executionContext) unmarshalOInt2ᚖint(ctx context.Context, v interface{}) (*int, error) {
 	if v == nil {
 		return nil, nil
@@ -5515,6 +5689,14 @@ func (ec *executionContext) marshalOInt2ᚖint(ctx context.Context, sel ast.Sele
 	}
 	res := graphql.MarshalInt(*v)
 	return res
+}
+
+func (ec *executionContext) unmarshalOPostFilter2ᚖOzonTestᚋinternalᚋentityᚐPostFilter(ctx context.Context, v interface{}) (*entity.PostFilter, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputPostFilter(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
 func (ec *executionContext) unmarshalOString2ᚖstring(ctx context.Context, v interface{}) (*string, error) {

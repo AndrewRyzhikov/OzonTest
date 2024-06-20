@@ -1,5 +1,5 @@
 type Post {
-    postID: ID!
+    id: ID!
     userID: ID!
     content: String!
     comments: [Comment]!

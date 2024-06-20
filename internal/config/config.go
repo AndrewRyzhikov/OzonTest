@@ -5,18 +5,23 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/ilyakaznacheev/cleanenv"
 )
 
 type Config struct {
-	DataBaseConfig   DataBaseConfig   `yaml:"data_base" env-required:"true"`
+	RepositoryType   string           `yaml:"repository_type" env-required:"true"`
+	DataBaseConfig   DataBaseConfig   `yaml:"data_base"`
 	HttpServerConfig HttpServerConfig `yaml:"http_server" env-required:"true"`
 	LogConfig        LogConfig        `yaml:"log" env-required:"true"`
+	ShutdownTimeout  time.Duration    `yaml:"shutdown_timeout" env-required:"true"`
 }
 
 type HttpServerConfig struct {
-	Port string `yaml:"port" env-required:"true"`
+	Port         string        `yaml:"port" env-required:"true"`
+	ReadTimeout  time.Duration `yaml:"read_timeout" env-required:"true"`
+	WriteTimeout time.Duration `yaml:"write_timeout" env-required:"true"`
 }
 
 type DataBaseConfig struct {
@@ -25,7 +30,6 @@ type DataBaseConfig struct {
 	User     string `yaml:"user" env-required:"true"`
 	Password string `yaml:"password" env-required:"true"`
 	DbName   string `yaml:"dbname" env-required:"true"`
-	Driver   string `yaml:"driver" env-required:"true"`
 }
 
 type LogConfig struct {
