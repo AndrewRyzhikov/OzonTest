@@ -21,7 +21,6 @@ func NewRouter(commentService contracts.Comment, postService contracts.Post, sub
 	srv := handler.NewDefaultServer(generated.NewExecutableSchema(generated.Config{
 		Resolvers: graph.NewResolver(commentService, postService, subscriptionService),
 	}))
-	//srv.AddTransport(&transport.Websocket{})
 
 	m := http.NewServeMux()
 

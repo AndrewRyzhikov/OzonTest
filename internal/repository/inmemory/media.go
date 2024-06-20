@@ -94,9 +94,8 @@ func (media *Media) SwitchCommentsState(_ context.Context, ID int, state bool) (
 
 func (media *Media) CreateComment(_ context.Context, input entity.Comment) (*entity.Comment, error) {
 	media.Lock()
-	defer media.Unlock()
-
 	p, ok := media.posts[input.PostID]
+	media.Unlock()
 	if !ok {
 		return &entity.Comment{}, entity.ErrNotFound("post", input.PostID)
 	}
@@ -110,9 +109,8 @@ func (media *Media) CreateComment(_ context.Context, input entity.Comment) (*ent
 
 func (media *Media) CreateRepComment(_ context.Context, input entity.Comment) (*entity.Comment, error) {
 	media.Lock()
-	defer media.Unlock()
-
 	p, ok := media.posts[input.PostID]
+	media.Unlock()
 	if !ok {
 		return &entity.Comment{}, entity.ErrNotFound("post", input.PostID)
 	}
@@ -121,16 +119,16 @@ func (media *Media) CreateRepComment(_ context.Context, input entity.Comment) (*
 }
 
 func (media *Media) GetCommentById(_ context.Context, ID int, pagination entity.Pagination) (*entity.Comment, error) {
-	media.RLock()
-	defer media.RUnlock()
 	comment := &entity.Comment{}
 
+	media.RLock()
 	for _, p := range media.posts {
 		if tmp, ok := p.findComment(ID); ok {
 			comment = tmp
 			break
 		}
 	}
+	media.RUnlock()
 
 	if comment == nil {
 		return comment, entity.ErrNotFound("comment", ID)
@@ -152,14 +150,14 @@ func (media *Media) GetCommentById(_ context.Context, ID int, pagination entity.
 }
 
 func (media *Media) GetAllComments(_ context.Context, filter *entity.CommentFilter, pagination entity.Pagination) ([]*entity.Comment, error) {
-	media.RLock()
-	defer media.RUnlock()
 
 	comments := make([]*entity.Comment, 0)
 
+	media.RLock()
 	for _, p := range media.posts {
 		comments = append(comments, p.getAllComments()...)
 	}
+	media.RUnlock()
 
 	filterComments := filterComments(comments, filter)
 

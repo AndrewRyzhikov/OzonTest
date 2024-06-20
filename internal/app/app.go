@@ -4,13 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"os/signal"
 	"syscall"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/sync/errgroup"
-	"gopkg.in/natefinch/lumberjack.v2"
 
 	"OzonTest/internal/config"
 	"OzonTest/internal/entity"
@@ -22,15 +22,12 @@ import (
 )
 
 func StartApp() {
-	cfg, err := config.Load()
+	cfg, err := config.New()
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to load config file")
 	}
 
-	log.Logger, err = setupLog(&cfg.LogConfig)
-	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to setup logger")
-	}
+	log.Logger = setupLog()
 
 	var MediaRepository contracts.MediaRepository
 
@@ -41,7 +38,7 @@ func StartApp() {
 
 	switch cfg.RepositoryType {
 	case "postgres":
-		commentStorage, err := db.NewStorage[entity.Comment](cfg.DataBaseConfig)
+		commentStorage, err := db.NewStorage[entity.Comment](*cfg)
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to create comment storage")
 		}
@@ -58,7 +55,7 @@ func StartApp() {
 			return nil
 		})
 
-		postStorage, err := db.NewStorage[entity.Post](cfg.DataBaseConfig)
+		postStorage, err := db.NewStorage[entity.Post](*cfg)
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to create post storage")
 		}
@@ -78,6 +75,7 @@ func StartApp() {
 		MediaRepository = db.NewDatabaseMedia(commentStorage, postStorage)
 
 	case "in_memory":
+		log.Info().Msg("In-memory storage connected...")
 		MediaRepository = inmemory.NewMedia()
 	default:
 		log.Fatal().Msg("Unknown repository type")
@@ -91,7 +89,7 @@ func StartApp() {
 
 	router := server.NewRouter(commentService, postService, subscriptionService)
 
-	controller := server.NewMediaController(router.Mux, cfg.HttpServerConfig)
+	controller := server.NewMediaController(router.Mux, cfg.Port)
 	controller.Start()
 	log.Info().Msg("Media controller started...")
 
@@ -132,23 +130,6 @@ func StartApp() {
 	}
 }
 
-func setupLog(config *config.LogConfig) (zerolog.Logger, error) {
-	lumberjackCfg := config.Lumberjack
-
-	lr := &lumberjack.Logger{
-		Filename:   config.Path,
-		MaxSize:    int(lumberjackCfg.MaxSize),
-		MaxAge:     int(lumberjackCfg.MaxAge),
-		MaxBackups: int(lumberjackCfg.MaxBackups),
-		LocalTime:  lumberjackCfg.LocalTime,
-		Compress:   lumberjackCfg.Compress,
-	}
-
-	level, err := zerolog.ParseLevel(config.Level)
-
-	if err != nil {
-		return zerolog.Logger{}, fmt.Errorf("invalid log level: %s", config.Level)
-	}
-
-	return zerolog.New(lr).Level(level).With().Timestamp().Logger(), nil
+func setupLog() zerolog.Logger {
+	return zerolog.New(zerolog.ConsoleWriter{Out: os.Stdout}).With().Timestamp().Logger()
 }

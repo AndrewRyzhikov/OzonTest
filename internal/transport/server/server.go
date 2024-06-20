@@ -7,23 +7,18 @@ import (
 
 	"github.com/rs/zerolog/log"
 	"golang.org/x/net/context"
-
-	"OzonTest/internal/config"
 )
 
 type MediaController struct {
 	server *http.Server
-	config config.HttpServerConfig
 }
 
-func NewMediaController(handler http.Handler, config config.HttpServerConfig) *MediaController {
+func NewMediaController(handler http.Handler, port string) *MediaController {
 	server := &http.Server{
-		Addr:         ":" + config.Port,
-		Handler:      handler,
-		ReadTimeout:  config.ReadTimeout,
-		WriteTimeout: config.WriteTimeout,
+		Addr:    ":" + port,
+		Handler: handler,
 	}
-	return &MediaController{server: server, config: config}
+	return &MediaController{server: server}
 }
 
 func (mc *MediaController) Start() {

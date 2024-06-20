@@ -1,6 +1,7 @@
 package inmemory
 
 import (
+	"sync"
 	"time"
 
 	"OzonTest/internal/entity"
@@ -15,6 +16,7 @@ type post struct {
 	Timestamp time.Time
 	IsOpen    bool
 
+	sync.Mutex
 	keyGenerator int
 }
 
@@ -30,6 +32,9 @@ func newPost(ID int, input entity.Post) *post {
 }
 
 func (p *post) insertComment(input *entity.Comment) (*entity.Comment, error) {
+	p.Lock()
+	defer p.Unlock()
+
 	if _, ok := p.Comments[input.ID]; ok {
 		return &entity.Comment{}, entity.ErrAlreadyExists("comment", input.ID)
 	}
@@ -42,6 +47,9 @@ func (p *post) insertComment(input *entity.Comment) (*entity.Comment, error) {
 }
 
 func (p *post) insertRepComment(input *entity.Comment) (*entity.Comment, error) {
+	p.Lock()
+	defer p.Unlock()
+
 	if _, ok := p.Comments[*input.ParentID]; !ok {
 		return &entity.Comment{}, entity.ErrNotFound("comment", *input.ParentID)
 	}
@@ -58,6 +66,9 @@ func (p *post) insertRepComment(input *entity.Comment) (*entity.Comment, error) 
 }
 
 func (p *post) getAllComments() []*entity.Comment {
+	p.Lock()
+	defer p.Unlock()
+
 	comments := make([]*entity.Comment, 0, len(p.Comments))
 	for _, comment := range p.Comments {
 		comments = append(comments, comment)
@@ -67,18 +78,26 @@ func (p *post) getAllComments() []*entity.Comment {
 }
 
 func (p *post) findComment(id int) (*entity.Comment, bool) {
+	p.Lock()
+	defer p.Unlock()
+
 	comment, ok := p.Comments[id]
 	return comment, ok
 }
 
 func (p *post) deleteComment(id int) error {
+	p.Lock()
+	defer p.Unlock()
+
 	comment, ok := p.Comments[id]
 	if !ok {
 		return entity.ErrNotFound("comment", id)
 	}
 
 	for _, repComment := range comment.Replies {
+		p.Unlock()
 		p.deleteComment(repComment.ID)
+		p.Lock()
 	}
 
 	delete(p.Comments, id)

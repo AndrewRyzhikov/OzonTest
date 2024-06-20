@@ -16,17 +16,12 @@ type Storage[T any] struct {
 
 var DriverName = "postgres"
 
-func NewStorage[T any](cfg config.DataBaseConfig) (*Storage[T], error) {
-	db, err := sqlx.Connect(DriverName, dataToPSQLConnection(cfg.Port, cfg.Host, cfg.User, cfg.Password, cfg.DbName))
+func NewStorage[T any](cfg config.Config) (*Storage[T], error) {
+	db, err := sqlx.Connect(DriverName, cfg.DBConn)
 	if err != nil {
 		return nil, fmt.Errorf("error connecting to the database: %v", err)
 	}
 	return &Storage[T]{db}, nil
-}
-
-func dataToPSQLConnection(port uint64, host, user, password, dbname string) string {
-	return fmt.Sprintf("host=%s port=%d user=%s "+"password=%s dbname=%s sslmode=disable",
-		host, port, user, password, dbname)
 }
 
 func (d *Storage[T]) queryRowContext(ctx context.Context, query string, args ...interface{}) (T, error) {
